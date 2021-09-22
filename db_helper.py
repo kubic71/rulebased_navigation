@@ -25,7 +25,7 @@ class DbObject:
     def __repr__(self):
         return self.__str__()
 
-
+# Database List wrapper for pretty printing
 class List(DbObject):
     def __init__(self, l: list):
         self._l = l
@@ -33,15 +33,33 @@ class List(DbObject):
     def __str__(self):
         if len(self._l) == 0:
             return "[]"
-        elif len(self._l) == 1:
-            return "[\n  " + str(self._l[0]) + ",\n]"
-
         
         element_strings = []
         for el in self._l:
             element_strings.append(str(el))
         
         return "[\n" + indent(",\n".join(element_strings)) + "\n]"
+    
+    def __getattr__(self, attr):
+        print(attr)
+        if attr != "__str__":
+            return getattr(self._l, attr)
+
+
+# Database Dict wrapper for pretty printing
+class Dict(DbObject):
+    def __init__(self, d: dict):
+        self._d = d
+    
+    def __str__(self):
+        if len(self._d) == 0:
+            return "{}"
+
+        element_strings = []
+        for key in self._d:
+            element_strings.append(f"{key}: {self._d[key]}")
+        
+        return "{\n" + indent(",\n".join(element_strings)) + "\n}"
     
     def __getattr__(self, attr):
         print(attr)
@@ -71,6 +89,10 @@ class Vector(DbObject):
 
     def __str__(self):
         return f"Vector({self.x}, {self.y})"
+
+    def __hash__(self):
+        # We want to be able to store Vectors in dict and set
+        return self.x*997 + self.y
     
     def rotate(self, clockwise=True):
         return Vector.from_tuple(rotate((self.x, self.y), clockwise=clockwise))
@@ -107,12 +129,60 @@ class SonarSensor(DbObject):
         return f"left: {self.left}\nforward:  {self.forward}\nright:  {self.right}"
 
 
+class Node(DbObject):
+    """We want to implement a variant of DFS
+    Node in the search graph corresponds to a cell in the map 
+    it's either:
+        "unknown" - not in the discovered set of nodes
+        "discovered" - in the discovered set of nodes, but we haven't yet visited the node
+        "open" - it was discovered and we have visited the node, but we haven't yet searched all reachable paths for that node
+        "closed" - it was discovered, opened and all the reachable paths have been searched""" 
+    
+    DISCOVERED = "discovered"
+    OPEN = "open"
+    CLOSED = "closed"
+
+    SPACE = "Space"
+    WALL = "Wall"
+
+
+    def __init__(self, coord: Vector):
+        self.coord = coord
+
+        # we add the node to our knowledge base when we "see" it with the sonar
+        self.state = Node.DISCOVERED
+
+        # every node is either "free space" or a "wall"
+        self.type = Node.SPACE
+    
+    
+
+class Wall(Node):
+    def __init__(self, coord: Vector):
+        self.coord = coord
+
+        # there aren't any reachable paths from the "wall" node, because we are never allowed to go there
+        self.state = Node.CLOSED
+        self.type = Node.WALL
+
 
 class Database(DbObject):
     def __init__(self, init_position: Vector, orientation: Vector, goal: Vector):
+        # initially the rover has access only to its position, orientation and goal coordinates
         self.position = init_position
         self.orientation = orientation
         self.goal = goal
+
+        # at the beginning the only information we have is that rover's initial position must not be a wall
+        start_node = Node(self.position)
+
+        # the map which rover construct's in his database as he goes through the maze
+        self.rover_map = Dict({self.position: start_node})
+
+
+        # sonar sensor is injected by Maze, to which rover doesn't have direct access
+        # the sonar interface is the only way rover can gather information about the walls/free space
+        self.sonar = None
 
         # set of all database objects
         self.db = set()
@@ -121,14 +191,5 @@ class Database(DbObject):
 if __name__ == "__main__":
     db = Database(Vector(1, 2), Vector(0, 1), Vector(20, 19))
     db.some_list = List([1,2,List([10, 11, 123]),4, [], 5])
+    db.some_dict = Dict({"a": 1, "b": 2, (1, 0): "value", Vector(1,2): "this is v"})
     print(db)
-
-    v = Vector(0, 1)
-    for i in range(10):
-        print(v, v.to_arrow())
-        v = v.rotate(clockwise=True)
-
-    print("-----------")
-    for i in range(10):
-        print(v, v.to_arrow())
-        v = v.rotate(clockwise=False)
