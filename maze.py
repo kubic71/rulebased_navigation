@@ -50,16 +50,13 @@ class Maze:
     # Get distances to the walls for left, forward and right sonar sensors
     def left_sonar(self):
         sonar_ray = self.db.orientation.rotate(clockwise=False)
-        print("left s:" , sonar_ray)
         return self._count_dist_to_wall(sonar_ray)
 
     def forward_sonar(self):
-        print("forward s:" , self.db.orientation)
         return self._count_dist_to_wall(self.db.orientation)
 
     def right_sonar(self):
         sonar_ray = self.db.orientation.rotate(clockwise=True)
-        print("right s:" , sonar_ray)
         return self._count_dist_to_wall(sonar_ray)
 
     def sonar(self):
