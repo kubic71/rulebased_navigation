@@ -21,10 +21,6 @@ if __name__ == "__main__":
 
     parser.add_argument("--verbose", default=False, dest="verbose", action="store_true")
 
-    print(random_walk_rules[0])
-    print(random_walk_rules[1])
-    print(random_walk_rules[2])
-
     args = parser.parse_args()
     maze = Maze(percent_fill=args.fill, size=(args.m, args.n))
     db = maze.db
