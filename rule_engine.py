@@ -1,3 +1,5 @@
+from db_helper import indent
+import time
 
 class Condition:
     def match(self, db):
@@ -11,6 +13,10 @@ class Condition:
     
     def __invert__(self):
         return Not(self)
+    
+    def __str__(self):
+        return self.__class__.__name__
+
 
     def __repr__(self):
         return self.__str__()
@@ -48,6 +54,16 @@ class Not(Condition):
     def __str__(self):
         return f"~{self.r}"
 
+class AlwaysCondition(Condition):
+    """Condition, that is always true"""
+
+    def match(self, db):
+        return True
+
+    def __str__(self):
+        return "AlwaysTrue"
+
+
 
 class BasicCond(Condition):
     def __init__(self, name="condition_1"):
@@ -62,25 +78,59 @@ class Action:
     def do(self, db):
         pass
 
+    def __str__(self):
+        return self.__class__.__name__
 
-class UpdateMapWithSensorData(Action):
-    def do(self, db):
-        # Add Walls/Free space information to the db based on sensor data
-        pass
+
+class Rule:
+    def __init__(self, condition, *actions):
+        self.condition = condition
+        self.actions = actions
+    
+    def do_actions(self, db):
+        for action in self.actions:
+            action.do(db)
+    
+    def actions_str(self):
+        s = ""
+        for i, action in enumerate(self.actions):
+            s += f"{i+1}. {action}\n"
+        return s
+
+
+    def __str__(self):
+        return "Condition:\n" + indent(str(self.condition)) + "\nActions:\n" + indent(self.actions_str())
 
 
 class RuleEngine:
-    def __init__(self, rules, db):
+    def __init__(self, rules, db, maze, delay=1, verbose=False):
         self.rules = rules
         self.db = db
+        self.maze = maze
+        self.delay = delay
+        self.verbose = verbose
+
+    def print_progress(self):
+        if self.verbose:
+            print(self.maze.db)
+
+        print(self.maze)
+        time.sleep(self.delay)
+
     
     def step(self):
-        # go through the rules and return the one matching
+        # go through the rules and execute all matching
+        matched_any = False
         for r in self.rules:
-            if r.match(self.db):
-                r.action(self.db)
-                return
-        raise Exception("No matching rule found!")
+            if r.condition.match(self.db):
+                print("Matched rule:\n", indent(str(r)))
+                r.do_actions(self.db)
+                matched_any = True
+
+                self.print_progress()
+
+        if not matched_any:
+            raise Exception("No matching rule found!")
 
 if __name__ == "__main__":
     conj = BasicCond("cond1") & BasicCond("cond2") & BasicCond("cond3")

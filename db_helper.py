@@ -1,4 +1,5 @@
 from directions import all_directions, directions_map, rotate
+from collections import defaultdict
 
 def indent(text, indentation="  "):
     # prepend indentation to each line of the text
@@ -41,15 +42,15 @@ class List(DbObject):
         return "[\n" + indent(",\n".join(element_strings)) + "\n]"
     
     def __getattr__(self, attr):
-        print(attr)
-        if attr != "__str__":
-            return getattr(self._l, attr)
+        return getattr(self._l, attr)
 
 
 # Database Dict wrapper for pretty printing
 class Dict(DbObject):
     def __init__(self, d: dict):
         self._d = d
+
+
     
     def __str__(self):
         if len(self._d) == 0:
@@ -60,12 +61,28 @@ class Dict(DbObject):
             element_strings.append(f"{key}: {self._d[key]}")
         
         return "{\n" + indent(",\n".join(element_strings)) + "\n}"
+
+
+    def __setitem__(self, key, item):
+        self._d[key] = item
     
     def __getattr__(self, attr):
-        print(attr)
-        if attr != "__str__":
-            return getattr(self._l, attr)
+        return getattr(self._d, attr)
 
+
+# default-dict returning "unknown" nodes for non-existing records
+class RoverMap(Dict):
+
+    def __getitem__(self, pos):
+        try:
+            return self._d[pos]
+        except KeyError:
+            self._d[pos] = Node.createUnknown(pos)
+            return self[pos]
+    
+
+    def __getattr__(self, attr):
+        return getattr(self._d, attr)
 
 class Vector(DbObject):
     def __init__(self, x, y):
@@ -138,32 +155,40 @@ class Node(DbObject):
         "open" - it was discovered and we have visited the node, but we haven't yet searched all reachable paths for that node
         "closed" - it was discovered, opened and all the reachable paths have been searched""" 
     
-    DISCOVERED = "discovered"
-    OPEN = "open"
-    CLOSED = "closed"
+    UNKNOWN = "UNKNOWN"
+    DISCOVERED = "DISCOVERED"
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
 
-    SPACE = "Space"
-    WALL = "Wall"
+    SPACE = "SPACE"
+    WALL = "WALL"
+    UNKNOWN_TYPE = "UNKNOWN_TYPE"
 
 
-    def __init__(self, coord: Vector):
+    def __init__(self, coord: Vector, state, type):
         self.coord = coord
 
         # we add the node to our knowledge base when we "see" it with the sonar
-        self.state = Node.DISCOVERED
+        self.state = state
 
-        # every node is either "free space" or a "wall"
-        self.type = Node.SPACE
+        self.type = type
     
+    def __str__(self):
+        return f"state: {self.state}, type: {self.type}"
     
 
-class Wall(Node):
-    def __init__(self, coord: Vector):
-        self.coord = coord
+    @classmethod
+    def createWall(cls, pos):
+        # we cannot ever step on the wall-square, so we set its state to "CLOSED" rightaway
+        return Node(pos, state=Node.CLOSED, type=Node.WALL)
 
-        # there aren't any reachable paths from the "wall" node, because we are never allowed to go there
-        self.state = Node.CLOSED
-        self.type = Node.WALL
+    @classmethod
+    def createSpace(cls, pos):
+        return Node(pos, state=Node.DISCOVERED, type=Node.SPACE)
+    
+    @classmethod
+    def createUnknown(cls, pos):
+        return Node(pos, state=Node.UNKNOWN, type=Node.UNKNOWN_TYPE)
 
 
 class Database(DbObject):
@@ -174,10 +199,11 @@ class Database(DbObject):
         self.goal = goal
 
         # at the beginning the only information we have is that rover's initial position must not be a wall
-        start_node = Node(self.position)
+        start_node = Node.createSpace(self.position)
+        start_node.state = Node.OPEN
 
         # the map which rover construct's in his database as he goes through the maze
-        self.rover_map = Dict({self.position: start_node})
+        self.rover_map = RoverMap({self.position: start_node})
 
 
         # sonar sensor is injected by Maze, to which rover doesn't have direct access
@@ -189,6 +215,18 @@ class Database(DbObject):
     
 
 if __name__ == "__main__":
+    unk = Node.createUnknown(Vector(1,2))
+    sp = Node.createSpace(Vector(4,2))
+    w = Node.createWall(Vector(5,2))
+    print(unk)
+    print(sp)
+    print(w)
+
+    m = RoverMap({})
+    print(m)
+    m[Vector(1,2)]
+    print(m)
+
     db = Database(Vector(1, 2), Vector(0, 1), Vector(20, 19))
     db.some_list = List([1,2,List([10, 11, 123]),4, [], 5])
     db.some_dict = Dict({"a": 1, "b": 2, (1, 0): "value", Vector(1,2): "this is v"})
