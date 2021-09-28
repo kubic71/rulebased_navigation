@@ -17,6 +17,8 @@ if __name__ == "__main__":
     parser.add_argument("--m", type=int, default=10, help="Height of the maze")
     parser.add_argument("--n", type=int, default=15, help="Width of the maze")
     parser.add_argument("--fill", type=float, default=0.1, help="Percentage of the maze filled with walls.")
+    parser.add_argument("--n_steps", type=int, default=10, help="How many passes through the rule-set are made")
+
     parser.add_argument("--delay", type=float, default=0)
 
     parser.add_argument("--verbose", default=False, dest="verbose", action="store_true")
@@ -29,6 +31,8 @@ if __name__ == "__main__":
 
     print(maze)
     print(maze.db)
-    for i in range(10):
+    for i in range(args.n_steps):
+        # engine.step() makes 1 pass through the rule-set
+        # in one pass, more than 1 rule can be matched
         engine.step()
 
